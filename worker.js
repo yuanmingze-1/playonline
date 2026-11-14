@@ -1,4 +1,4 @@
-// Cloudflare Pages + Durable Objects 实时同步后端
+// Cloudflare Worker（Workers-with-assets）+ Durable Object 实时同步后端
 // 单房间（可通过 URL 参数 ?room=xxx 开多个独立房间）
 
 function pickColor(seed){
@@ -11,6 +11,7 @@ export class Room {
   constructor(state, env){
     this.state = state;
     this.env = env;
+    this.ctx = state.ctx; // WebSocket  hibernation API 必须用它
   }
 
   async fetch(request){
@@ -109,7 +110,7 @@ export default {
       const id = env.ROOM.idFromName(room);
       return env.ROOM.get(id).fetch(request);
     }
-    // 其余请求交给 Pages 静态资源（index.html 等）
+    // 其余请求交给静态资源（index.html 等）
     return env.ASSETS.fetch(request);
   },
 };

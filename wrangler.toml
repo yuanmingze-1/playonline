@@ -1,5 +1,5 @@
 name = "playonline"
-main = "_worker.js"
+main = "worker.js"
 compatibility_date = "2024-11-01"
 
 # 把 index.html 等静态文件交给 Worker 的 ASSETS 绑定（前端页面）
