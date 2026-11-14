@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>云自习室 · StudyRoom</title>
+<style>
+  :root{
+    --bg1:#1b2138; --bg2:#2a2150; --panel:rgba(20,24,40,.72);
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; height:100%; overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:#fff; -webkit-tap-highlight-color:transparent;
+  }
+  body{
+    background:
+      radial-gradient(1200px 800px at 20% 10%, #3a2f6e 0%, transparent 60%),
+      radial-gradient(1000px 700px at 90% 90%, #163b53 0%, transparent 55%),
+      linear-gradient(135deg,var(--bg1),var(--bg2));
+  }
+  #room{
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+    background-size:48px 48px;
+    cursor:pointer; touch-action:none;
+  }
+  .player{
+    position:absolute; left:50%; top:50%; width:48px; height:48px;
+    transform:translate(-50%,-50%); pointer-events:none; will-change:left,top;
+  }
+  .player .avatar{
+    width:44px; height:44px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:22px;
+    box-shadow:0 6px 18px rgba(0,0,0,.35); border:2px solid rgba(255,255,255,.85);
+    user-select:none;
+  }
+  .player .label{
+    position:absolute; top:48px; left:50%; transform:translateX(-50%);
+    white-space:nowrap; font-size:12px; background:rgba(0,0,0,.45);
+    padding:2px 8px; border-radius:10px; max-width:140px; overflow:hidden; text-overflow:ellipsis;
+  }
+  .player.self .avatar{ border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.25),0 6px 18px rgba(0,0,0,.4); }
+  .player .dot{ position:absolute; right:2px; top:2px; width:10px; height:10px; border-radius:50%; background:#5be37a; box-shadow:0 0 8px #5be37a; }
+
+  #topbar{
+    position:fixed; top:12px; left:50%; transform:translateX(-50%);
+    display:flex; gap:10px; align-items:center; background:var(--panel);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    padding:8px 14px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.3);
+    z-index:5; max-width:94vw;
+  }
+  #topbar .title{ font-weight:700; letter-spacing:.5px; }
+  #topbar .count{ font-size:13px; opacity:.85; }
+  #topbar input{
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); color:#fff;
+    border-radius:10px; padding:6px 10px; outline:none; width:120px; font-size:13px;
+  }
+
+  #status{ position:fixed; top:12px; right:12px; font-size:12px; padding:6px 10px; border-radius:10px; background:var(--panel); z-index:5; }
+  #status.ok{ color:#7ef0a0; }
+  #status.bad{ color:#ff9a9a; }
+
+  #chat{
+    position:fixed; left:12px; bottom:12px; width:340px; max-width:calc(100vw - 24px);
+    height:260px; max-height:46vh; background:var(--panel);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-radius:16px; display:flex; flex-direction:column;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); z-index:5; overflow:hidden;
+  }
+  #chat .head{ padding:8px 12px; font-size:13px; opacity:.8; border-bottom:1px solid rgba(255,255,255,.08); }
+  #messages{ flex:1; overflow-y:auto; padding:8px 12px; display:flex; flex-direction:column; gap:6px; font-size:13px; line-height:1.4; }
+  #messages .msg{ word-break:break-word; }
+  #messages .name{ font-weight:700; }
+  #messages .sys{ opacity:.6; font-style:italic; font-size:12px; }
+  #messages::-webkit-scrollbar{ width:6px; }
+  #messages::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.2); border-radius:3px; }
+  #chat form{ display:flex; padding:8px; gap:6px; border-top:1px solid rgba(255,255,255,.08); }
+  #chat input{ flex:1; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); color:#fff; border-radius:10px; padding:8px 10px; outline:none; font-size:13px; }
+  #chat button{ background:#5b8cff; border:none; color:#fff; border-radius:10px; padding:0 14px; font-size:13px; cursor:pointer; }
+
+  #hint{ position:fixed; right:12px; bottom:12px; font-size:12px; opacity:.5; z-index:4; text-align:right; line-height:1.6; }
+</style>
+</head>
+<body>
+  <div id="room"></div>
+
+  <div id="topbar">
+    <span class="title">📚 云自习室</span>
+    <span class="count" id="count">在线 1</span>
+    <input id="nameInput" maxlength="16" placeholder="昵称" />
+  </div>
+
+  <div id="status" class="bad">连接中…</div>
+
+  <div id="chat">
+    <div class="head">💬 自习室聊天</div>
+    <div id="messages"></div>
+    <form id="chatForm">
+      <input id="chatInput" maxlength="500" placeholder="说点什么…" autocomplete="off" />
+      <button type="submit">发送</button>
+    </form>
+  </div>
+
+  <div id="hint">点击 / 拖动移动 · WASD 或方向键移动<br />位置与聊天实时同步</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const EMOJIS = ["📚","🐱","🐰","🐻","🌟","🍎","☕","🎧","📖","🌈","🐼","🌸","🐨","🦊","🐧","🍀"];
+
+  function uuid(){
+    return (crypto.randomUUID ? crypto.randomUUID()
+      : 'xxxxxxxx'.replace(/x/g,()=> (Math.random()*16|0).toString(16)));
+  }
+  function get(key, gen){
+    let v = localStorage.getItem(key);
+    if(!v){ v = gen(); localStorage.setItem(key, v); }
+    return v;
+  }
+  function hashHsl(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return h; }
+  function emojiFrom(s){ return EMOJIS[hashHsl(s)%EMOJIS.length]; }
+  function colorFrom(s){ return `hsl(${hashHsl(s)},68%,62%)`; }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // —— 身份 token（本地存储）——
+  const token = get('sr_token', uuid);
+  let name  = get('sr_name', ()=> '同学'+token.slice(0,4));
+  const color= get('sr_color', ()=> colorFrom(token));
+  const me = { id: token, name, color, x:0.5, y:0.5, tx:0.5, ty:0.5, emoji: emojiFrom(token) };
+
+  const room = document.getElementById('room');
+  const messages = document.getElementById('messages');
+  const countEl = document.getElementById('count');
+  const statusEl = document.getElementById('status');
+  const nameInput = document.getElementById('nameInput');
+  nameInput.value = name;
+
+  const players = new Map();            // id -> { el, x, y, tx, ty, name, color, emoji }
+  players.set(token, makePlayerEl(me, true));
+
+  function makePlayerEl(p, isSelf){
+    const el = document.createElement('div');
+    el.className = 'player' + (isSelf ? ' self' : '');
+    el.innerHTML =
+      '<span class="dot"></span>' +
+      `<div class="avatar" style="background:${p.color}">${p.emoji}</div>` +
+      `<div class="label">${escapeHtml(p.name)}${isSelf ? '（我）' : ''}</div>`;
+    room.appendChild(el);
+    el.style.left = (p.x*100) + '%';
+    el.style.top  = (p.y*100) + '%';
+    return { el, x:p.x, y:p.y, tx:p.x, ty:p.y, name:p.name, color:p.color, emoji:p.emoji };
+  }
+
+  // —— WebSocket 实时连接 ——
+  let ws, connected=false, retry=0;
+  function connect(){
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const q = `token=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}&color=${encodeURIComponent(color)}`;
+    ws = new WebSocket(`${proto}://${location.host}/ws?${q}`);
+    ws.onopen = ()=>{ connected=true; retry=0; statusEl.textContent='已连接'; statusEl.className='ok'; sendMove(); };
+    ws.onmessage = (e)=> onMessage(e.data);
+    ws.onclose = ()=>{
+      connected=false; statusEl.textContent='断开，重连中…'; statusEl.className='bad';
+      retry=Math.min(retry+1,6); setTimeout(connect, 500*retry);
+    };
+    ws.onerror = ()=>{ try{ ws.close(); }catch(_){} };
+  }
+  function send(obj){ if(ws && ws.readyState===1) ws.send(JSON.stringify(obj)); }
+
+  function onMessage(raw){
+    let m; try{ m = JSON.parse(raw); }catch(_){ return; }
+    if(m.type === 'init'){
+      for(const [id,pl] of players){ if(id !== token){ pl.el.remove(); players.delete(id); } }
+      (m.players || []).forEach(addPlayer);
+      updateCount();
+    } else if(m.type === 'join'){
+      addPlayer(m.player); updateCount();
+      sysMsg(`${m.player.name} 进入了自习室`);
+    } else if(m.type === 'leave'){
+      const pl = players.get(m.id); if(pl){ pl.el.remove(); players.delete(m.id); }
+      updateCount();
+      sysMsg(`${m.name || '某人'} 离开了自习室`);
+    } else if(m.type === 'move'){
+      if(m.id === token) return;
+      const pl = players.get(m.id); if(pl){ pl.tx = m.x; pl.ty = m.y; }
+    } else if(m.type === 'name'){
+      const pl = players.get(m.id);
+      if(pl){ pl.name = m.name; pl.el.querySelector('.label').innerHTML = escapeHtml(m.name) + (m.id===token ? '（我）' : ''); }
+    } else if(m.type === 'chat'){
+      chatMsg(m);
+    }
+  }
+  function addPlayer(p){
+    if(players.has(p.id)) return;
+    players.set(p.id, makePlayerEl(p, false));
+  }
+  function updateCount(){ countEl.textContent = '在线 ' + players.size; }
+  function sysMsg(t){ const d=document.createElement('div'); d.className='msg sys'; d.textContent=t; messages.appendChild(d); scrollMsg(); }
+  function chatMsg(m){
+    const d=document.createElement('div'); d.className='msg';
+    d.innerHTML = `<span class="name" style="color:${m.color}">${escapeHtml(m.name)}：</span>${escapeHtml(m.text)}`;
+    messages.appendChild(d); scrollMsg();
+  }
+  function scrollMsg(){ messages.scrollTop = messages.scrollHeight; }
+
+  // —— 移动控制 ——
+  const keys = {};
+  addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; });
+  addEventListener('keyup',   e=>{ keys[e.key.toLowerCase()] = false; });
+
+  let dragging = false;
+  function setTargetFromEvent(e){
+    const r = room.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    me.tx = Math.min(1, Math.max(0, (cx - r.left) / r.width));
+    me.ty = Math.min(1, Math.max(0, (cy - r.top)  / r.height));
+  }
+  room.addEventListener('pointerdown', e=>{ dragging = true; setTargetFromEvent(e); });
+  addEventListener('pointermove', e=>{ if(dragging) setTargetFromEvent(e); });
+  addEventListener('pointerup',   ()=>{ dragging = false; });
+
+  let lastSent = 0;
+  function sendMove(){ send({ type:'move', x:me.x, y:me.y }); }
+
+  function loop(){
+    const sp = 0.006;
+    if(keys['w'] || keys['arrowup'])    me.ty -= sp;
+    if(keys['s'] || keys['arrowdown'])  me.ty += sp;
+    if(keys['a'] || keys['arrowleft'])  me.tx -= sp;
+    if(keys['d'] || keys['arrowright']) me.tx += sp;
+    me.tx = Math.min(1, Math.max(0, me.tx));
+    me.ty = Math.min(1, Math.max(0, me.ty));
+
+    me.x += (me.tx - me.x) * 0.25;
+    me.y += (me.ty - me.y) * 0.25;
+
+    for(const [id, pl] of players){
+      if(id === token){
+        pl.el.style.left = (me.x*100) + '%';
+        pl.el.style.top  = (me.y*100) + '%';
+      } else {
+        pl.x += (pl.tx - pl.x) * 0.2;
+        pl.y += (pl.ty - pl.y) * 0.2;
+        pl.el.style.left = (pl.x*100) + '%';
+        pl.el.style.top  = (pl.y*100) + '%';
+      }
+    }
+
+    const now = performance.now();
+    if(connected && now - lastSent > 50){ lastSent = now; sendMove(); }
+    requestAnimationFrame(loop);
+  }
+
+  // —— 聊天 ——
+  document.getElementById('chatForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const inp = document.getElementById('chatInput');
+    const t = inp.value.trim(); if(!t) return;
+    send({ type:'chat', text:t });
+    inp.value = '';
+  });
+  nameInput.addEventListener('change', ()=>{
+    const n = nameInput.value.trim().slice(0,16); if(!n) return;
+    name = n; localStorage.setItem('sr_name', n);
+    const pl = players.get(token);
+    if(pl){ pl.name = n; pl.el.querySelector('.label').innerHTML = escapeHtml(n) + '（我）'; }
+    send({ type:'name', name:n });
+  });
+
+  updateCount();
+  connect();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
